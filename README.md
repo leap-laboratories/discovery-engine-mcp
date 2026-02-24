@@ -1,6 +1,6 @@
 # Discovery Engine MCP Server
 
-MCP server for [Discovery Engine](https://www.leap-labs.com) by Leap Laboratories. Finds novel, statistically validated patterns in tabular data — feature interactions, subgroup effects, and conditional relationships you wouldn't think to look for.
+MCP server for [Discovery Engine](https://www.leap-labs.com) by Leap Laboratories. Superhuman exploratory data analysis – finds insight you wouldn't think to look for. Novel, statistically validated patterns surfaced automatically — feature interactions, subgroup effects, and conditional relationships you'd otherwise miss. Multiple scientific discoveries to date: free for open data. 
 
 ## Quick Start
 
