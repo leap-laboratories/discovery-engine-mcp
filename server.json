@@ -1,0 +1,44 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "com.leap-labs/discovery-engine",
+  "title": "Discovery Engine",
+  "description": "Find novel, statistically validated patterns in tabular data. MCP server for hypothesis-free scientific discovery — feature interactions, subgroup effects, and conditional relationships validated on hold-out data.",
+  "version": "1.0.0",
+  "websiteUrl": "https://www.leap-labs.com",
+  "repository": {
+    "url": "https://github.com/leap-laboratories/discovery-engine-mcp",
+    "source": "github"
+  },
+  "packages": [
+    {
+      "registryType": "pypi",
+      "identifier": "discovery-engine-mcp",
+      "version": "1.0.0",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "DISCOVERY_API_KEY",
+          "description": "Your Discovery Engine API key (starts with disco_)",
+          "isRequired": true,
+          "isSecret": true
+        }
+      ]
+    }
+  ],
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://disco.leap-labs.com/mcp",
+      "headers": [
+        {
+          "name": "Authorization",
+          "description": "Bearer token with disco_ API key (format: Bearer disco_...)",
+          "isRequired": true,
+          "isSecret": true
+        }
+      ]
+    }
+  ]
+}

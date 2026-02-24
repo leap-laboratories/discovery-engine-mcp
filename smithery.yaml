@@ -1,0 +1,17 @@
+startCommand:
+  type: stdio
+  configSchema:
+    type: object
+    required:
+      - apiKey
+    properties:
+      apiKey:
+        type: string
+        title: "API Key"
+        description: "Your Discovery Engine API key (starts with disco_). Get one at https://disco.leap-labs.com/developers"
+  commandFunction: |
+    config => ({
+      command: 'uvx',
+      args: ['discovery-engine-mcp'],
+      env: { DISCOVERY_API_KEY: config.apiKey }
+    })
