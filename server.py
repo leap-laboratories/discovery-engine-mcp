@@ -15,10 +15,8 @@ from mcp.server.fastmcp import FastMCP
 
 logger = logging.getLogger(__name__)
 
-API_BASE_URL = os.getenv(
-    "DISCOVERY_API_URL", "https://leap-labs-production--discovery-api.modal.run"
-)
-DASHBOARD_URL = os.getenv("DISCOVERY_DASHBOARD_URL", "https://disco.leap-labs.com")
+API_BASE_URL = "https://leap-labs-production--discovery-api.modal.run"
+DASHBOARD_URL = "https://disco.leap-labs.com"
 
 # API key from environment — avoids passing secrets through tool parameters
 # where they'd be logged by MCP clients.
@@ -672,13 +670,7 @@ async def discovery_subscribe(plan: str, api_key: str | None = None) -> str:
 
 def main():
     """Run the MCP server."""
-    transport = os.getenv("MCP_TRANSPORT", "stdio")
-    if transport == "streamable-http":
-        host = os.getenv("MCP_HOST", "127.0.0.1")
-        port = int(os.getenv("MCP_PORT", "8080"))
-        mcp.run(transport="streamable-http", host=host, port=port)
-    else:
-        mcp.run(transport="stdio")
+    mcp.run(transport="stdio")
 
 
 if __name__ == "__main__":

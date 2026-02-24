@@ -86,12 +86,7 @@ Free tier: 10 credits/month for private runs, unlimited public runs.
 
 ## Configuration
 
-| Environment Variable | Default | Description |
-|---------------------|---------|-------------|
-| `DISCOVERY_API_KEY` | — | Your API key (starts with `disco_`) |
-| `DISCOVERY_API_URL` | `https://leap-labs-production--discovery-api.modal.run` | API backend URL |
-| `DISCOVERY_DASHBOARD_URL` | `https://disco.leap-labs.com` | Dashboard URL |
-| `MCP_TRANSPORT` | `stdio` | Transport: `stdio` or `streamable-http` |
+Set `DISCOVERY_API_KEY` to your API key (starts with `disco_`).
 
 ## Links
 
