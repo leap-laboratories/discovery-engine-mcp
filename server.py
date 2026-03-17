@@ -1,7 +1,7 @@
 """Discovery Engine MCP Server.
 
 Exposes Discovery Engine as MCP tools for AI agents.
-10 tools covering the full lifecycle: discovery, estimation, account management.
+11 tools covering the full lifecycle: discovery, estimation, account management.
 """
 
 from __future__ import annotations
@@ -15,8 +15,7 @@ from mcp.server.fastmcp import FastMCP
 
 logger = logging.getLogger(__name__)
 
-API_BASE_URL = "https://leap-labs-production--discovery-api.modal.run"
-DASHBOARD_URL = "https://disco.leap-labs.com"
+DASHBOARD_URL = os.getenv("DISCOVERY_DASHBOARD_URL", "https://disco.leap-labs.com")
 
 # API key from environment — avoids passing secrets through tool parameters
 # where they'd be logged by MCP clients.
@@ -24,7 +23,7 @@ _ENV_API_KEY = os.getenv("DISCOVERY_API_KEY")
 
 # File safety: allowed extensions and max size for uploads
 _ALLOWED_EXTENSIONS = {".csv", ".tsv", ".xlsx", ".xls", ".json", ".parquet", ".arff", ".feather"}
-_MAX_FILE_SIZE_BYTES = 1024 * 1024 * 1024  # 1 GB
+_MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024 * 1024  # 5 GB
 
 _VALID_VISIBILITY = {"public", "private"}
 
@@ -43,15 +42,7 @@ mcp = FastMCP(
 # Shared HTTP clients (connection pooling)
 # ---------------------------------------------------------------------------
 
-_api_client: httpx.AsyncClient | None = None
 _dashboard_client: httpx.AsyncClient | None = None
-
-
-async def _get_api_client() -> httpx.AsyncClient:
-    global _api_client
-    if _api_client is None:
-        _api_client = httpx.AsyncClient(base_url=API_BASE_URL, timeout=30.0)
-    return _api_client
 
 
 async def _get_dashboard_client() -> httpx.AsyncClient:
@@ -81,14 +72,6 @@ def _api_headers(api_key: str | None = None) -> dict[str, str]:
     return headers
 
 
-def _clerk_headers(clerk_token: str) -> dict[str, str]:
-    return {
-        "Content-Type": "application/json",
-        "Authorization": f"Bearer {clerk_token}",
-        "X-Client-Type": "mcp",
-    }
-
-
 def _validate_visibility(visibility: str) -> str | None:
     """Validate visibility parameter. Returns error message or None."""
     if visibility not in _VALID_VISIBILITY:
@@ -101,48 +84,6 @@ def _validate_visibility(visibility: str) -> str | None:
 # ---------------------------------------------------------------------------
 
 
-async def _api_request(
-    method: str,
-    path: str,
-    *,
-    api_key: str | None = None,
-    clerk_token: str | None = None,
-    json_body: dict | None = None,
-    timeout: float = 30.0,
-) -> dict:
-    """Make a request to the Discovery Engine API."""
-    headers = _clerk_headers(clerk_token) if clerk_token else _api_headers(api_key)
-    client = await _get_api_client()
-
-    try:
-        if method == "GET":
-            resp = await client.get(path, headers=headers, timeout=timeout)
-        else:
-            resp = await client.post(path, headers=headers, json=json_body or {}, timeout=timeout)
-
-        if resp.status_code == 401:
-            return {"error": "Authentication failed. Check your API key or session token."}
-        if resp.status_code == 402:
-            return {"error": "Payment required. Add a payment method first."}
-        if resp.status_code == 429:
-            retry = resp.headers.get("Retry-After", "60")
-            return {"error": f"Rate limited. Retry after {retry} seconds."}
-        if resp.status_code >= 400:
-            try:
-                detail = resp.json().get("detail", resp.text)
-            except Exception:
-                detail = resp.text
-            return {"error": f"API error ({resp.status_code}): {detail}"}
-
-        return resp.json()
-    except httpx.ConnectError as e:
-        logger.error("Connection failed: %s", e)
-        return {"error": f"Connection failed: {e}. Check DISCOVERY_API_URL."}
-    except httpx.TimeoutException as e:
-        logger.error("Request timed out: %s", e)
-        return {"error": f"Request timed out: {e}"}
-
-
 async def _dashboard_request(
     method: str,
     path: str,
@@ -151,11 +92,7 @@ async def _dashboard_request(
     json_body: dict | None = None,
     timeout: float = 30.0,
 ) -> dict:
-    """Make a request to the Discovery Dashboard API.
-
-    Upload, run submission, status, and results endpoints live on the
-    dashboard (disco.leap-labs.com/api/...), not the Modal API.
-    """
+    """Make a request to the Discovery Dashboard API (disco.leap-labs.com/api/...)."""
     headers = _api_headers(api_key)
     client = await _get_dashboard_client()
 
@@ -194,27 +131,8 @@ async def _dashboard_request(
 
 
 def _build_result_hints(data: dict) -> list[str]:
-    """Build contextual upgrade/action hints from a completed run result."""
-    hints: list[str] = []
-
-    hidden_deep = data.get("hidden_deep_count", 0)
-    hidden_deep_novel = data.get("hidden_deep_novel_count", 0)
-
-    if hidden_deep > 0:
-        novel_part = f", including {hidden_deep_novel} novel" if hidden_deep_novel else ""
-        hints.append(
-            f"Deep analysis found {hidden_deep} more pattern{'s' if hidden_deep != 1 else ''}"
-            f"{novel_part}. "
-            "Upgrade to a paid plan to unlock them: https://disco.leap-labs.com/account"
-        )
-
-    if data.get("is_public", True):
-        hints.append(
-            "This was a public run — results are visible in the public gallery. "
-            "Use visibility='private' for confidential data."
-        )
-
-    return hints
+    """Return server-provided upgrade hints from a completed run result."""
+    return data.get("hints", [])
 
 
 # ---------------------------------------------------------------------------
@@ -275,7 +193,7 @@ async def discovery_list_plans() -> str:
     No authentication required. Returns all available subscription tiers
     with credit allowances and pricing. Use this to help users choose a plan.
     """
-    result = await _api_request("GET", "/v1/plans")
+    result = await _dashboard_request("GET", "/api/plans")
     return json.dumps(result, indent=2)
 
 
@@ -326,18 +244,22 @@ async def discovery_estimate(
     if num_rows is not None:
         payload["num_rows"] = num_rows
 
-    result = await _api_request("POST", "/v1/estimate", api_key=resolved_key, json_body=payload)
+    result = await _dashboard_request("POST", "/api/estimate", api_key=resolved_key, json_body=payload)
     return json.dumps(result, indent=2)
 
 
 @mcp.tool()
 async def discovery_analyze(
-    file_path: str,
     target_column: str,
+    file_path: str | None = None,
+    file_ref: str | dict | None = None,
     depth_iterations: int = 1,
     visibility: str = "public",
     title: str | None = None,
     description: str | None = None,
+    excluded_columns: str | list | None = None,
+    author: str | None = None,
+    source_url: str | None = None,
     api_key: str | None = None,
 ) -> str:
     """Run Discovery Engine on tabular data to find novel, statistically validated patterns.
@@ -357,13 +279,20 @@ async def discovery_analyze(
     Public runs are free but results are published. Private runs cost credits.
     Call discovery_estimate first to check cost.
 
+    Provide either file_path (local file to upload) or file_ref (pre-uploaded file
+    reference from the presigned URL upload flow).
+
     Args:
-        file_path: Path to the dataset file (CSV, TSV, Excel, JSON, Parquet, ARFF, Feather).
         target_column: The column to analyze — what drives it, beyond what's obvious.
+        file_path: Path to a local dataset file (CSV, TSV, Excel, JSON, Parquet, ARFF, Feather).
+        file_ref: JSON string with pre-uploaded file reference: {"file": {...}, "columns": [...]}.
         depth_iterations: Search depth (1=fast, higher=deeper). Default 1.
         visibility: "public" (free) or "private" (costs credits). Default "public".
         title: Optional title for the analysis.
         description: Optional description of the dataset.
+        excluded_columns: Optional JSON array of column names to exclude from analysis.
+        author: Optional author name for the report.
+        source_url: Optional source URL for the dataset.
         api_key: Discovery Engine API key (disco_...). Optional if DISCOVERY_API_KEY env var is set.
     """
     import mimetypes
@@ -379,72 +308,93 @@ async def discovery_analyze(
     if vis_err:
         return json.dumps({"error": vis_err})
 
-    # Validate file before reading
-    file_err = _validate_file_path(file_path)
-    if file_err:
-        return json.dumps({"error": file_err})
+    if not file_path and not file_ref:
+        return json.dumps({"error": "Provide either file_path or file_ref."})
+    if file_path and file_ref:
+        return json.dumps({"error": "Provide file_path or file_ref, not both."})
 
-    resolved_path = _os.path.realpath(file_path)
-    file_name = _os.path.basename(resolved_path)
-    content_type = mimetypes.guess_type(resolved_path)[0] or "text/csv"
-    file_size = _os.path.getsize(resolved_path)
+    if file_ref:
+        # Use pre-uploaded file reference — skip upload steps.
+        # The MCP SDK may deserialize JSON strings into dicts, so accept both.
+        if isinstance(file_ref, dict):
+            ref = file_ref
+        else:
+            try:
+                ref = json.loads(file_ref)
+            except json.JSONDecodeError as e:
+                return json.dumps({"error": f"Invalid file_ref JSON: {e}"})
 
-    # Step 1: Get presigned upload URL
-    presign = await _dashboard_request(
-        "POST",
-        "/api/data/upload/presign",
-        api_key=resolved_key,
-        json_body={
-            "fileName": file_name,
-            "contentType": content_type,
-            "fileSize": file_size,
-        },
-    )
-    if "error" in presign:
-        return json.dumps(presign)
+        uploaded_file = ref.get("file")
+        columns = ref.get("columns", [])
+        if not uploaded_file or not uploaded_file.get("key"):
+            return json.dumps({"error": "file_ref must contain 'file' with at least a 'key'."})
+    else:
+        # Upload from local file path
+        file_err = _validate_file_path(file_path)
+        if file_err:
+            return json.dumps({"error": file_err})
 
-    upload_url = presign.get("uploadUrl")
-    key = presign.get("key")
-    upload_token = presign.get("uploadToken")
-    if not upload_url or not key or not upload_token:
-        return json.dumps({"error": "Failed to get upload URL from API."})
+        resolved_path = _os.path.realpath(file_path)
+        file_name = _os.path.basename(resolved_path)
+        content_type = mimetypes.guess_type(resolved_path)[0] or "text/csv"
+        file_size = _os.path.getsize(resolved_path)
 
-    # Step 2: Upload file to presigned URL
-    async with httpx.AsyncClient(timeout=300.0) as upload_client:
-        with open(resolved_path, "rb") as f:
-            upload_resp = await upload_client.put(
-                upload_url,
-                content=f.read(),
-                headers={"Content-Type": content_type},
-            )
-            if upload_resp.status_code >= 400:
-                return json.dumps({"error": f"File upload failed: {upload_resp.status_code}"})
+        # Step 1: Get presigned upload URL
+        presign = await _dashboard_request(
+            "POST",
+            "/api/data/upload/presign",
+            api_key=resolved_key,
+            json_body={
+                "fileName": file_name,
+                "contentType": content_type,
+                "fileSize": file_size,
+            },
+        )
+        if "error" in presign:
+            return json.dumps(presign)
 
-    # Step 3: Finalize the upload
-    finalize = await _dashboard_request(
-        "POST",
-        "/api/data/upload/finalize",
-        api_key=resolved_key,
-        json_body={"key": key, "uploadToken": upload_token},
-    )
-    if "error" in finalize:
-        return json.dumps(finalize)
+        upload_url = presign.get("uploadUrl")
+        key = presign.get("key")
+        upload_token = presign.get("uploadToken")
+        if not upload_url or not key or not upload_token:
+            return json.dumps({"error": "Failed to get upload URL from API."})
 
-    if not finalize.get("ok"):
-        errors = finalize.get("issues", {}).get("errors", [])
-        error_msg = errors[0].get("message") if errors else "Upload finalize failed"
-        return json.dumps({"error": error_msg})
+        # Step 2: Upload file to presigned URL
+        async with httpx.AsyncClient(timeout=300.0) as upload_client:
+            with open(resolved_path, "rb") as f:
+                upload_resp = await upload_client.put(
+                    upload_url,
+                    content=f.read(),
+                    headers={"Content-Type": content_type},
+                )
+                if upload_resp.status_code >= 400:
+                    return json.dumps({"error": f"File upload failed: {upload_resp.status_code}"})
 
-    uploaded_file = finalize["file"]
-    columns = finalize.get("columns", [])
+        # Step 3: Finalize the upload
+        finalize = await _dashboard_request(
+            "POST",
+            "/api/data/upload/finalize",
+            api_key=resolved_key,
+            json_body={"key": key, "uploadToken": upload_token},
+        )
+        if "error" in finalize:
+            return json.dumps(finalize)
 
-    # Step 4: Create the run
+        if not finalize.get("ok"):
+            errors = finalize.get("issues", {}).get("errors", [])
+            error_msg = errors[0].get("message") if errors else "Upload finalize failed"
+            return json.dumps({"error": error_msg})
+
+        uploaded_file = finalize["file"]
+        columns = finalize.get("columns", [])
+
+    # Build the run payload
     run_payload: dict = {
         "file": {
             "key": uploaded_file["key"],
-            "name": uploaded_file["name"],
-            "size": uploaded_file["size"],
-            "fileHash": uploaded_file["fileHash"],
+            "name": uploaded_file.get("name", "dataset"),
+            "size": uploaded_file.get("size", 0),
+            "fileHash": uploaded_file.get("fileHash", ""),
         },
         "columns": columns,
         "targetColumn": target_column,
@@ -455,6 +405,21 @@ async def discovery_analyze(
         run_payload["title"] = title
     if description:
         run_payload["description"] = description
+    if author:
+        run_payload["author"] = author
+    if source_url:
+        run_payload["sourceUrl"] = source_url
+    if excluded_columns:
+        if isinstance(excluded_columns, list):
+            excluded_list = excluded_columns
+        else:
+            try:
+                excluded_list = json.loads(excluded_columns)
+            except json.JSONDecodeError:
+                return json.dumps({"error": "excluded_columns must be a JSON array."})
+        for col in run_payload["columns"]:
+            if col.get("name") in excluded_list and col.get("name") != target_column:
+                col["enabled"] = False
 
     result = await _dashboard_request(
         "POST",
@@ -462,6 +427,16 @@ async def discovery_analyze(
         api_key=resolved_key,
         json_body=run_payload,
     )
+
+    if result.get("duplicate"):
+        run_id = result.get("run_id")
+        existing = await _dashboard_request(
+            "GET", f"/api/runs/{run_id}/results", api_key=resolved_key
+        )
+        if "error" not in existing and existing.get("status") == "completed":
+            existing["hints"] = _build_result_hints(existing)
+        return json.dumps(existing, indent=2)
+
     return json.dumps(result, indent=2)
 
 
@@ -550,7 +525,7 @@ async def discovery_account(api_key: str | None = None) -> str:
             {"error": "API key required. Pass api_key or set DISCOVERY_API_KEY env var."}
         )
 
-    result = await _api_request("GET", "/v1/account", api_key=resolved_key)
+    result = await _dashboard_request("GET", "/api/account", api_key=resolved_key)
     return json.dumps(result, indent=2)
 
 
@@ -558,9 +533,11 @@ async def discovery_account(api_key: str | None = None) -> str:
 async def discovery_signup(email: str, name: str = "") -> str:
     """Create a Discovery Engine account and get an API key.
 
-    Zero-touch signup: provide an email address, get back a ready-to-use
-    disco_ API key. The free tier (10 credits/month, unlimited public runs)
-    is active immediately. No authentication required.
+    Provide an email address to start the signup flow. If email verification
+    is required, returns {"status": "verification_required"} — the user will
+    receive a 6-digit code by email, then call discovery_signup_verify to
+    complete signup and receive the API key. The free tier (10 credits/month,
+    unlimited public runs) is active immediately. No authentication required.
 
     Returns 409 if the email is already registered.
 
@@ -571,7 +548,27 @@ async def discovery_signup(email: str, name: str = "") -> str:
     body: dict = {"email": email}
     if name:
         body["name"] = name
-    result = await _api_request("POST", "/v1/signup", json_body=body)
+    result = await _dashboard_request("POST", "/api/signup", json_body=body)
+    return json.dumps(result, indent=2)
+
+
+@mcp.tool()
+async def discovery_signup_verify(email: str, code: str) -> str:
+    """Complete Discovery Engine signup using an email verification code.
+
+    Call this after discovery_signup returns {"status": "verification_required"}.
+    The user receives a 6-digit code by email — pass it here along with the
+    same email address used in discovery_signup. Returns an API key on success.
+
+    Args:
+        email: Email address used in the discovery_signup call.
+        code: 6-digit verification code from the email.
+    """
+    result = await _dashboard_request(
+        "POST",
+        "/api/signup/verify",
+        json_body={"email": email, "code": code},
+    )
     return json.dumps(result, indent=2)
 
 
@@ -597,9 +594,9 @@ async def discovery_add_payment_method(payment_method_id: str, api_key: str | No
             {"error": "API key required. Pass api_key or set DISCOVERY_API_KEY env var."}
         )
 
-    result = await _api_request(
+    result = await _dashboard_request(
         "POST",
-        "/v1/account/payment-method",
+        "/api/account/payment-method",
         api_key=resolved_key,
         json_body={"payment_method_id": payment_method_id},
     )
@@ -624,9 +621,9 @@ async def discovery_purchase_credits(packs: int = 1, api_key: str | None = None)
             {"error": "API key required. Pass api_key or set DISCOVERY_API_KEY env var."}
         )
 
-    result = await _api_request(
+    result = await _dashboard_request(
         "POST",
-        "/v1/account/credits/purchase",
+        "/api/account/credits/purchase",
         api_key=resolved_key,
         json_body={"packs": packs},
     )
@@ -654,9 +651,9 @@ async def discovery_subscribe(plan: str, api_key: str | None = None) -> str:
             {"error": "API key required. Pass api_key or set DISCOVERY_API_KEY env var."}
         )
 
-    result = await _api_request(
+    result = await _dashboard_request(
         "POST",
-        "/v1/account/subscribe",
+        "/api/account/subscribe",
         api_key=resolved_key,
         json_body={"plan": plan},
     )
@@ -670,7 +667,13 @@ async def discovery_subscribe(plan: str, api_key: str | None = None) -> str:
 
 def main():
     """Run the MCP server."""
-    mcp.run(transport="stdio")
+    transport = os.getenv("MCP_TRANSPORT", "stdio")
+    if transport == "streamable-http":
+        host = os.getenv("MCP_HOST", "127.0.0.1")
+        port = int(os.getenv("MCP_PORT", "8080"))
+        mcp.run(transport="streamable-http", host=host, port=port)
+    else:
+        mcp.run(transport="stdio")
 
 
 if __name__ == "__main__":
