@@ -53,9 +53,17 @@ Auth: Bearer disco_...
 Sign up from the command line (no password, no credit card):
 
 ```bash
-curl -X POST https://disco.leap-labs.com/v1/signup \
+# Step 1: Request verification code
+curl -X POST https://disco.leap-labs.com/api/signup \
   -H "Content-Type: application/json" \
   -d '{"email": "you@example.com"}'
+# → {"status": "verification_required", "email": "you@example.com"}
+
+# Step 2: Submit code from email
+curl -X POST https://disco.leap-labs.com/api/signup/verify \
+  -H "Content-Type: application/json" \
+  -d '{"email": "you@example.com", "code": "123456"}'
+# → {"key": "disco_...", "key_id": "...", "organization_id": "...", "tier": "free_tier", "credits": 10}
 ```
 
 Or create a key at [disco.leap-labs.com/developers](https://disco.leap-labs.com/developers).
@@ -77,7 +85,8 @@ Free tier: 10 credits/month for private runs, unlimited public runs.
 
 | Tool | Description |
 |------|-------------|
-| `discovery_signup` | Create an account and get an API key (no auth required) |
+| `discovery_signup` | Start account creation — sends verification code to email |
+| `discovery_signup_verify` | Complete signup by submitting the verification code |
 | `discovery_account` | Check account status, credits, and plan |
 | `discovery_list_plans` | List available plans with pricing |
 | `discovery_subscribe` | Subscribe to or change your plan |
