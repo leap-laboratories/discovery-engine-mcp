@@ -266,6 +266,7 @@ async def discovery_analyze(
     title: str | None = None,
     description: str | None = None,
     excluded_columns: str | list | None = None,
+    column_descriptions: str | dict | None = None,
     author: str | None = None,
     source_url: str | None = None,
     api_key: str | None = None,
@@ -299,6 +300,7 @@ async def discovery_analyze(
         title: Optional title for the analysis.
         description: Optional description of the dataset.
         excluded_columns: Optional JSON array of column names to exclude from analysis.
+        column_descriptions: Optional JSON object mapping column names to descriptions. Significantly improves pattern explanations — always provide if column names are non-obvious (e.g. {"col_7": "patient age", "feat_a": "blood pressure"}).
         author: Optional author name for the report.
         source_url: Optional source URL for the dataset.
         api_key: Discovery Engine API key (disco_...). Optional if DISCOVERY_API_KEY env var is set.
@@ -428,6 +430,18 @@ async def discovery_analyze(
         for col in run_payload["columns"]:
             if col.get("name") in excluded_list and col.get("name") != target_column:
                 col["enabled"] = False
+
+    if column_descriptions:
+        if isinstance(column_descriptions, dict):
+            desc_map = column_descriptions
+        else:
+            try:
+                desc_map = json.loads(column_descriptions)
+            except json.JSONDecodeError:
+                return json.dumps({"error": "column_descriptions must be a JSON object."})
+        for col in run_payload["columns"]:
+            if col.get("name") in desc_map:
+                col["description"] = desc_map[col["name"]]
 
     result = await _dashboard_request(
         "POST",
