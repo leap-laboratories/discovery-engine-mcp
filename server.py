@@ -131,8 +131,14 @@ async def _dashboard_request(
 
 
 def _build_result_hints(data: dict) -> list[str]:
-    """Return server-provided upgrade hints from a completed run result."""
-    return data.get("hints", [])
+    """Return server-provided hints plus local public-run warning."""
+    hints = list(data.get("hints", []))
+    if data.get("is_public", False):
+        hints.append(
+            "This was a public run — results are visible in the public gallery. "
+            "Use visibility='private' for confidential data."
+        )
+    return hints
 
 
 # ---------------------------------------------------------------------------
