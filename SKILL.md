@@ -132,7 +132,6 @@ curl -X POST https://disco.leap-labs.com/api/signup/verify \
 # → {"key": "disco_...", "key_id": "...", "organization_id": "...", "tier": "free_tier", "credits": 10}
 ```
 
-Codes expire after 15 minutes. If the email service is unavailable, `POST /api/signup` returns the API key directly (same shape as the verify response) with no verification step required.
 
 **Manual (for humans):** Sign up at https://disco.leap-labs.com/sign-up, create key at https://disco.leap-labs.com/developers.
 
