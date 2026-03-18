@@ -6,7 +6,7 @@
   "version": "1.0.0",
   "websiteUrl": "https://www.leap-labs.com",
   "repository": {
-    "url": "https://github.com/leap-laboratories/discovery-engine-mcp",
+    "url": "https://github.com/leap-laboratories/discovery-engine",
     "source": "github"
   },
   "remotes": [
