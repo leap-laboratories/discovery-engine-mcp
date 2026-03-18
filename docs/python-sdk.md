@@ -105,6 +105,25 @@ async def main():
 result = asyncio.run(main())
 ```
 
+### Inspecting Columns Before Running
+
+If you need to see the dataset's columns before choosing a target column — e.g., when column names are not obvious — upload first, inspect, then run without re-uploading:
+
+```python
+# Upload once and get the server's parsed column list
+upload = await engine.upload_file(file="data.csv", title="My dataset")
+print(upload["columns"])   # [{"name": "col1", "type": "continuous", ...}, ...]
+print(upload["rowCount"])  # e.g., 5000
+
+# Pass the result to avoid re-uploading
+result = await engine.run_async(
+    file="data.csv",
+    target_column="col1",
+    wait=True,
+    upload_result=upload,  # skips the upload step
+)
+```
+
 ### Synchronous Usage
 
 For scripts and Jupyter notebooks:
