@@ -210,16 +210,25 @@ Supported formats: **CSV**, **TSV**, **Excel (.xlsx)**, **JSON**, **Parquet**, *
 @dataclass
 class EngineResult:
     run_id: str
+    report_id: str | None                          # Report UUID (used in report_url)
     status: str                                    # "pending", "processing", "completed", "failed"
+    dataset_title: str | None                      # Title of the dataset
+    dataset_description: str | None                # Description of the dataset
+    total_rows: int | None
+    target_column: str | None                      # Column being predicted/analyzed
+    task: str | None                               # "regression", "binary_classification", "multiclass_classification"
     summary: Summary | None                        # LLM-generated insights
     patterns: list[Pattern]                        # Discovered patterns (the core output)
     columns: list[Column]                          # Feature info and statistics
-    feature_importance: FeatureImportance | None   # Global importance scores
     correlation_matrix: list[CorrelationEntry]     # Feature correlations
-    report_url: str | None                         # Shareable link to interactive web report
-    task: str | None                               # "regression", "binary_classification", "multiclass_classification"
-    total_rows: int | None
+    feature_importance: FeatureImportance | None   # Global importance scores
+    job_id: str | None                             # Job ID for tracking
+    job_status: str | None                         # Job queue status
     error_message: str | None
+    report_url: str | None                         # Shareable link to interactive web report
+    hints: list[str]                               # Upgrade hints (non-empty for free-tier users with hidden patterns)
+    hidden_deep_count: int                         # Patterns hidden due to depth limit (free tier)
+    hidden_deep_novel_count: int                   # Novel patterns hidden due to depth limit
 ```
 
 ### Pattern
@@ -228,6 +237,8 @@ class EngineResult:
 @dataclass
 class Pattern:
     id: str
+    task: str                           # "regression", "binary_classification", "multiclass_classification"
+    target_column: str                  # Column being analyzed
     description: str                    # Human-readable description
     conditions: list[dict]              # Conditions defining the pattern
     p_value: float                      # FDR-adjusted p-value
@@ -237,8 +248,10 @@ class Pattern:
     citations: list[dict]               # Academic citations
     target_change_direction: str        # "max" (increases target) or "min" (decreases)
     abs_target_change: float            # Magnitude of effect
+    target_score: float                 # Model score for this pattern
     support_count: int                  # Rows matching this pattern
     support_percentage: float           # Percentage of dataset
+    target_class: str | None            # For classification tasks
     target_mean: float | None           # For regression tasks
     target_std: float | None
 ```
@@ -288,6 +301,7 @@ class Summary:
     overview: str                       # High-level summary of findings
     key_insights: list[str]             # Main takeaways
     novel_patterns: PatternGroup        # Novel pattern IDs and explanation
+    selected_pattern_id: str | None     # ID of the highlighted/featured pattern
 ```
 
 ### Column
@@ -307,6 +321,11 @@ class Column:
     std: float | None
     min: float | None
     max: float | None
+    iqr_min: float | None               # 25th percentile
+    iqr_max: float | None               # 75th percentile
+    mode: str | None                    # Most common value (categorical columns)
+    approx_unique: int | None           # Approximate distinct value count
+    null_percentage: float | None
     feature_importance_score: float | None  # Signed importance score
 ```
 
@@ -337,6 +356,7 @@ from discovery import (
     InsufficientCreditsError,
     RateLimitError,
     RunFailedError,
+    RunNotFoundError,
     PaymentRequiredError,
 )
 
@@ -351,6 +371,10 @@ except RateLimitError as e:
     print(f"Retry after {e.retry_after} seconds")
 except RunFailedError as e:
     print(f"Run {e.run_id} failed: {e}")
+except RunNotFoundError as e:
+    print(f"Run {e.run_id} not found — may have been cleaned up")
+except PaymentRequiredError as e:
+    print(e.suggestion)  # "Attach a payment method with engine.add_payment_method(...)"
 except TimeoutError:
     pass  # Retrieve later with engine.wait_for_completion(run_id)
 ```

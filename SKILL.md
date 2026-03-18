@@ -71,7 +71,8 @@ Analyses take 3-15 minutes. **Do not block** — submit, continue other work, po
 ### MCP Parameters
 
 **`discovery_analyze`:**
-- `file_path` — Path to CSV, Excel, Parquet, JSON, TSV, ARFF, or Feather file (max 5 GB)
+- `file_path` — Path to CSV, Excel, Parquet, JSON, TSV, ARFF, or Feather file (max 5 GB). Provide either `file_path` or `file_ref`, not both.
+- `file_ref` — JSON string with a pre-uploaded file reference: `{"file": {...}, "columns": [...]}`. Use this when you've already uploaded the file via the presigned URL flow to avoid re-uploading.
 - `target_column` — The column to predict/explain
 - `depth_iterations` — 1 = fast (default), higher = deeper search. Max: num_columns - 2
 - `visibility` — `"public"` (free, results published) or `"private"` (costs credits)
@@ -79,6 +80,8 @@ Analyses take 3-15 minutes. **Do not block** — submit, continue other work, po
 - `excluded_columns` — JSON array of column names to exclude from analysis
 - `title` — Optional title for the analysis
 - `description` — Optional description of the dataset
+- `author` — Optional author name for the dataset
+- `source_url` — Optional URL of the original data source
 
 ### No API key?
 
@@ -244,6 +247,8 @@ EngineResult(
         # Pattern 1: Novel multi-condition interaction
         Pattern(
             id="p-1",
+            task="regression",
+            target_column="yield_tons_per_hectare",
             description="When humidity is between 72-89% AND wind speed is below 12 km/h, "
                         "crop yield increases by 34% above the dataset average",
             conditions=[
@@ -269,6 +274,7 @@ EngineResult(
             ],
             target_change_direction="max",
             abs_target_change=0.34,
+            target_score=0.81,
             support_count=847,
             support_percentage=16.9,
             target_mean=8.7,
@@ -278,6 +284,8 @@ EngineResult(
         # Pattern 2: Novel — contradicts existing guidelines
         Pattern(
             id="p-2",
+            task="regression",
+            target_column="yield_tons_per_hectare",
             description="When soil nitrogen exceeds 45 mg/kg AND soil phosphorus is below "
                         "12 mg/kg, crop yield decreases by 18% — a diminishing returns effect "
                         "not captured by standard fertilization models",
@@ -300,6 +308,7 @@ EngineResult(
             ],
             target_change_direction="min",
             abs_target_change=0.18,
+            target_score=0.74,
             support_count=634,
             support_percentage=12.7,
             target_mean=5.3,
@@ -309,6 +318,8 @@ EngineResult(
         # Pattern 3: Confirmatory — validates known finding
         Pattern(
             id="p-3",
+            task="regression",
+            target_column="yield_tons_per_hectare",
             description="When soil organic matter is above 3.2% AND irrigation is 'drip', "
                         "crop yield increases by 22%",
             conditions=[
@@ -329,6 +340,7 @@ EngineResult(
             ],
             target_change_direction="max",
             abs_target_change=0.22,
+            target_score=0.69,
             support_count=1203,
             support_percentage=24.0,
             target_mean=7.9,
@@ -523,8 +535,13 @@ class EngineResult:
     columns: list[Column]                          # Feature info and statistics
     correlation_matrix: list[CorrelationEntry]     # Feature correlations
     feature_importance: FeatureImportance | None   # Global importance scores
+    job_id: str | None                             # Job ID for tracking
+    job_status: str | None                         # Job queue status
     error_message: str | None
     report_url: str | None                         # Shareable link to interactive web report
+    hints: list[str]                               # Upgrade hints (non-empty for free-tier users with hidden patterns)
+    hidden_deep_count: int                         # Patterns hidden due to depth limit (free tier)
+    hidden_deep_novel_count: int                   # Novel patterns hidden due to depth limit
 
 @dataclass
 class Pattern:
@@ -615,6 +632,7 @@ from discovery.errors import (
     InsufficientCreditsError,
     RateLimitError,
     RunFailedError,
+    RunNotFoundError,
     PaymentRequiredError,
 )
 
@@ -628,6 +646,8 @@ except RateLimitError as e:
     pass  # Too many requests — retry after e.retry_after seconds
 except RunFailedError as e:
     pass  # Run failed server-side — e.run_id
+except RunNotFoundError as e:
+    pass  # Run not found — e.run_id (may have been cleaned up)
 except PaymentRequiredError as e:
     pass  # Payment method needed — check e.suggestion
 except FileNotFoundError:
