@@ -23,6 +23,7 @@ Use it when you need to go beyond answering questions about data, and start find
 
 - **MCP server** — for agents with MCP support. Remote server at `https://disco.leap-labs.com/mcp`, no local install required.
 - **Python SDK** — `pip install discovery-engine-api`. Use when you need programmatic control or are working in a Python environment.
+- **HTTP API** — call the REST API directly with any HTTP client.
 
 ---
 
@@ -103,35 +104,6 @@ Call `discovery_signup` with the user's email. This sends a verification code �
 pip install discovery-engine-api
 ```
 
-### Getting an API Key
-
-**For agents (no terminal):** Two-step signup via REST:
-
-```bash
-# Step 1 — send verification code
-curl -X POST https://disco.leap-labs.com/api/signup \
-  -H "Content-Type: application/json" \
-  -d '{"email": "agent@example.com"}'
-# → {"status": "verification_required", "email": "agent@example.com"}
-
-# Step 2 — submit code from email
-curl -X POST https://disco.leap-labs.com/api/signup/verify \
-  -H "Content-Type: application/json" \
-  -d '{"email": "agent@example.com", "code": "123456"}'
-# → {"key": "disco_...", "tier": "free_tier", "credits": 10}
-```
-
-Codes expire after 15 minutes.
-
-**Interactive (terminal available):**
-
-```python
-engine = await Engine.signup(email="agent@example.com")
-# Prompts for the verification code interactively
-```
-
-**Manual:** Sign up at https://disco.leap-labs.com/sign-up, create key at https://disco.leap-labs.com/developers.
-
 ### Quick Start
 
 ```python
@@ -156,13 +128,11 @@ print(f"Full report: {result.report_url}")
 Analyses take 3-15 minutes. **Do not block** — submit and retrieve results when ready.
 
 ```python
-# Submit and return immediately
 run = await engine.run_async(file="data.csv", target_column="outcome")
 print(f"Submitted run {run.run_id}, continuing with other work...")
 
 # ... do other things ...
 
-# Check back later
 result = await engine.wait_for_completion(run.run_id, timeout=1800)
 ```
 
@@ -182,22 +152,6 @@ engine.discover(
     excluded_columns: list[str] | None = None,
     timeout: float = 1800,
 )
-```
-
-**Cost formula:** `credits = max(1, ceil(file_size_mb * depth_iterations))`
-
-### Estimating Before Running
-
-```python
-estimate = await engine.estimate(
-    file_size_mb=10.5,
-    num_columns=25,
-    depth_iterations=2,
-    visibility="private",
-)
-# estimate["cost"]["credits"] → 21
-# estimate["account"]["sufficient"] → True/False
-# estimate["cost"]["free_alternative"] → True (run publicly for free at depth=1)
 ```
 
 ### Error Handling
@@ -226,6 +180,97 @@ except TimeoutError:
 ```
 
 All errors inherit from `DiscoveryError` and include a `suggestion` field.
+
+---
+
+## HTTP API
+
+All endpoints are at `https://disco.leap-labs.com`. Authenticate with `Authorization: Bearer disco_...`.
+
+### Signup (two-step)
+
+```bash
+# Step 1 — send verification code to email
+curl -X POST https://disco.leap-labs.com/api/signup \
+  -H "Content-Type: application/json" \
+  -d '{"email": "agent@example.com"}'
+# → {"status": "verification_required", "email": "agent@example.com"}
+
+# Step 2 — submit code to receive API key
+curl -X POST https://disco.leap-labs.com/api/signup/verify \
+  -H "Content-Type: application/json" \
+  -d '{"email": "agent@example.com", "code": "123456"}'
+# → {"key": "disco_...", "tier": "free_tier", "credits": 10}
+```
+
+Codes expire after 15 minutes. If the email service is unavailable, Step 1 returns the API key directly (same shape as the verify response).
+
+### Account
+
+```bash
+curl https://disco.leap-labs.com/api/account \
+  -H "Authorization: Bearer disco_..."
+# → {"stripe_publishable_key": "pk_live_...", "stripe_customer_id": "cus_...", "credits": {...}, ...}
+```
+
+### Plans
+
+```bash
+curl https://disco.leap-labs.com/api/plans \
+  -H "Authorization: Bearer disco_..."
+# → [{"id": "free_tier", "name": "Free", "monthly_credits": 10, "price_usd": 0}, ...]
+```
+
+### Subscribe
+
+```bash
+curl -X POST https://disco.leap-labs.com/api/account/subscribe \
+  -H "Authorization: Bearer disco_..." \
+  -H "Content-Type: application/json" \
+  -d '{"plan": "tier_1"}'
+# Plans: free_tier ($0, 10 cr/mo), tier_1 ($49, 50 cr/mo), tier_2 ($199, 200 cr/mo)
+```
+
+### Add Payment Method
+
+Agents can attach a payment method entirely via API — no browser required.
+
+**Step 1 — tokenize a card with Stripe** (use `stripe_publishable_key` from the account endpoint):
+
+```bash
+curl https://api.stripe.com/v1/payment_methods \
+  -u "pk_live_...:" \
+  -d "type=card" \
+  -d "card[number]=4242424242424242" \
+  -d "card[exp_month]=12" \
+  -d "card[exp_year]=2028" \
+  -d "card[cvc]=123"
+# → {"id": "pm_...", ...}
+```
+
+Card data goes directly to Stripe — Discovery Engine never sees it.
+
+**Step 2 — attach to your account:**
+
+```bash
+curl -X POST https://disco.leap-labs.com/api/account/payment-method \
+  -H "Authorization: Bearer disco_..." \
+  -H "Content-Type: application/json" \
+  -d '{"payment_method_id": "pm_..."}'
+# → {"payment_method_attached": true, "card_last4": "4242", "card_brand": "visa"}
+```
+
+### Purchase Credits
+
+Credits are sold in packs of 20 ($20/pack, $1.00/credit). Requires a payment method on file.
+
+```bash
+curl -X POST https://disco.leap-labs.com/api/account/credits/purchase \
+  -H "Authorization: Bearer disco_..." \
+  -H "Content-Type: application/json" \
+  -d '{"packs": 1}'
+# → {"purchased_credits": 20, "total_credits": 30, "charge_amount_usd": 20.0}
+```
 
 ---
 
