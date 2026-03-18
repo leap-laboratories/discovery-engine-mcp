@@ -1,7 +1,7 @@
 """Discovery Engine MCP Server.
 
 Exposes Discovery Engine as MCP tools for AI agents.
-11 tools covering the full lifecycle: discovery, estimation, account management.
+Covers the full lifecycle: discovery, estimation, account management.
 """
 
 from __future__ import annotations
@@ -250,7 +250,9 @@ async def discovery_estimate(
     if num_rows is not None:
         payload["num_rows"] = num_rows
 
-    result = await _dashboard_request("POST", "/api/estimate", api_key=resolved_key, json_body=payload)
+    result = await _dashboard_request(
+        "POST", "/api/estimate", api_key=resolved_key, json_body=payload
+    )
     return json.dumps(result, indent=2)
 
 
