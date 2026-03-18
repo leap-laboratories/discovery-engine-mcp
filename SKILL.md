@@ -557,7 +557,7 @@ class Pattern:
     abs_target_change: float            # Magnitude of effect
     support_count: int                  # Number of rows matching this pattern
     support_percentage: float           # Percentage of dataset
-    target_score: float
+    target_score: float                 # Mean target value (regression) or class fraction (classification) in the subgroup
     task: str
     target_column: str
     target_class: str | None            # For classification tasks

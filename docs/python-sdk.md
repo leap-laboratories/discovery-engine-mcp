@@ -248,7 +248,7 @@ class Pattern:
     citations: list[dict]               # Academic citations
     target_change_direction: str        # "max" (increases target) or "min" (decreases)
     abs_target_change: float            # Magnitude of effect
-    target_score: float                 # Model score for this pattern
+    target_score: float                 # Mean target value (regression) or class fraction (classification) in the subgroup
     support_count: int                  # Rows matching this pattern
     support_percentage: float           # Percentage of dataset
     target_class: str | None            # For classification tasks
@@ -350,8 +350,8 @@ class FeatureImportanceScore:
 ## Error Handling
 
 ```python
-from discovery import (
-    Engine,
+from discovery import Engine
+from discovery.errors import (
     AuthenticationError,
     InsufficientCreditsError,
     RateLimitError,
