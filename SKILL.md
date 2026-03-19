@@ -136,7 +136,7 @@ curl -X POST https://disco.leap-labs.com/api/signup/verify \
 ```
 
 
-**Manual (for humans):** Sign up at https://disco.leap-labs.com/sign-up, create key at https://disco.leap-labs.com/developers.
+**Manual (for humans):** Sign up at https://disco.leap-labs.com/sign-up, create key at https://disco.leap-labs.com/docs.
 
 ## Installation
 
@@ -407,7 +407,7 @@ engine.discover(
 - **Public runs**: Free. Results published to public gallery. Locked to depth=1.
 - **Private runs**: 1 credit per MB per depth iteration. $1.00 per credit.
 - Formula: `credits = max(1, ceil(file_size_mb * depth_iterations))`
-- API keys: https://disco.leap-labs.com/developers
+- API keys: https://disco.leap-labs.com/docs
 - Credits: https://disco.leap-labs.com/account
 
 ## Paying for Credits (Programmatic)
@@ -664,7 +664,7 @@ CSV, TSV, Excel (.xlsx), JSON, Parquet, ARFF, Feather. Max file size: 5 GB.
 
 ## Links
 
-- [Dashboard & API Keys](https://disco.leap-labs.com/developers)
+- [Dashboard & API Keys](https://disco.leap-labs.com/docs)
 - [Full LLM Documentation](https://disco.leap-labs.com/llms-full.txt)
 - [Python SDK on PyPI](https://pypi.org/project/discovery-engine-api/)
 - [API Spec](https://disco.leap-labs.com/.well-known/openapi.json)
