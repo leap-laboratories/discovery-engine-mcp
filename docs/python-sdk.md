@@ -342,7 +342,7 @@ class Column:
 
 ### FeatureImportance
 
-Computed using **Hierarchical Perturbation (HiPe)**, an ablation-based method. Scores are **signed** — positive means the feature increases the prediction, negative means it decreases it.
+Scores are **signed** — positive means the feature increases the prediction, negative means it decreases it.
 
 ```python
 @dataclass
