@@ -30,7 +30,7 @@ curl -X POST https://disco.leap-labs.com/api/signup/verify \
 # → {"key": "disco_...", "credits": 10, "tier": "free_tier"}
 ```
 
-Or create a key at [disco.leap-labs.com/developers](https://disco.leap-labs.com/developers).
+Or create a key at [disco.leap-labs.com/docs](https://disco.leap-labs.com/docs).
 
 Free tier: 10 credits/month for private runs, unlimited public runs. No card required.
 
@@ -88,8 +88,8 @@ For AI agents. Add to your MCP config:
 ## Links
 
 - [Dashboard](https://disco.leap-labs.com)
-- [API keys](https://disco.leap-labs.com/developers)
-- [Agent integration](https://disco.leap-labs.com/agents)
+- [API keys](https://disco.leap-labs.com/docs)
+- [Agent integration](https://disco.leap-labs.com/docs)
 - [LLM-friendly reference](llms.txt)
 - [OpenAPI spec](https://disco.leap-labs.com/.well-known/openapi.json)
 - [Python SDK on PyPI](https://pypi.org/project/discovery-engine-api/)
