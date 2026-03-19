@@ -2,6 +2,9 @@
 
 Exposes Discovery Engine as MCP tools for AI agents.
 Covers the full lifecycle: discovery, estimation, account management.
+
+NOTE: A public copy of this file lives at github.com/leap-laboratories/discovery-engine.
+It is synced automatically on every staging → main merge via .github/workflows/sync-public-repo.yml.
 """
 
 from __future__ import annotations
@@ -12,18 +15,19 @@ import os
 
 import httpx
 from mcp.server.fastmcp import FastMCP
+from mcp.server.streamable_http import TransportSecuritySettings
 
 logger = logging.getLogger(__name__)
 
-DASHBOARD_URL = os.getenv("DISCOVERY_DASHBOARD_URL", "https://disco.leap-labs.com")
+DASHBOARD_URL = os.getenv("DISCOVERY_DASHBOARD_URL") or os.getenv(
+    "DASHBOARD_BASE_URL", "https://disco.leap-labs.com"
+)
 
 # API key from environment — avoids passing secrets through tool parameters
 # where they'd be logged by MCP clients.
 _ENV_API_KEY = os.getenv("DISCOVERY_API_KEY")
 
 # File safety: allowed extensions and max size for uploads
-_ALLOWED_EXTENSIONS = {".csv", ".tsv", ".xlsx", ".xls", ".json", ".parquet", ".arff", ".feather"}
-_MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024 * 1024  # 5 GB
 
 _VALID_VISIBILITY = {"public", "private"}
 
@@ -34,6 +38,17 @@ mcp = FastMCP(
         "that finds novel, statistically validated patterns in tabular data — "
         "feature interactions, subgroup effects, and conditional relationships "
         "you wouldn't think to look for."
+    ),
+    stateless_http=True,  # Enable stateless mode for edge deployments (Modal, Vercel)
+    transport_security=TransportSecuritySettings(
+        enable_dns_rebinding_protection=True,
+        allowed_hosts=[
+            "localhost:*",
+            "127.0.0.1:*",
+            "[::1]:*",
+            # Public-facing URL (proxied via Vercel)
+            "disco.leap-labs.com",
+        ],
     ),
 )
 
@@ -142,52 +157,6 @@ def _build_result_hints(data: dict) -> list[str]:
 
 
 # ---------------------------------------------------------------------------
-# File validation
-# ---------------------------------------------------------------------------
-
-
-def _validate_file_path(file_path: str) -> str | None:
-    """Validate a file path for upload. Returns error message or None.
-
-    Guards against SSRF / arbitrary file exfiltration by checking:
-    - File exists
-    - Extension is in the allowlist (data files only)
-    - File is not too large to read into memory
-    - Path does not contain traversal patterns
-    """
-    import os as _os
-
-    # Resolve to absolute path to catch traversal
-    resolved = _os.path.realpath(file_path)
-
-    if not _os.path.exists(resolved):
-        return f"File not found: {file_path}"
-
-    if not _os.path.isfile(resolved):
-        return f"Not a file: {file_path}"
-
-    # Check extension
-    _, ext = _os.path.splitext(resolved)
-    ext = ext.lower()
-    if ext not in _ALLOWED_EXTENSIONS:
-        return (
-            f"Unsupported file type '{ext}'. " f"Allowed: {', '.join(sorted(_ALLOWED_EXTENSIONS))}"
-        )
-
-    # Check file size
-    file_size = _os.path.getsize(resolved)
-    if file_size > _MAX_FILE_SIZE_BYTES:
-        size_mb = file_size / (1024 * 1024)
-        max_mb = _MAX_FILE_SIZE_BYTES / (1024 * 1024)
-        return f"File too large ({size_mb:.1f} MB). Maximum: {max_mb:.0f} MB."
-
-    if file_size == 0:
-        return "File is empty."
-
-    return None
-
-
-# ---------------------------------------------------------------------------
 # Public tools (no auth)
 # ---------------------------------------------------------------------------
 
@@ -219,7 +188,7 @@ async def discovery_estimate(
 ) -> str:
     """Estimate cost, time, and credit requirements before running an analysis.
 
-    Returns credit cost, estimated duration (low/median/high), whether you have
+    Returns credit cost, estimated duration in seconds, whether you have
     sufficient credits, and whether a free public alternative exists. Always call
     this before discovery_analyze for private runs.
 
@@ -256,10 +225,185 @@ async def discovery_estimate(
     return json.dumps(result, indent=2)
 
 
+_MIME_TYPES = {
+    ".csv": "text/csv",
+    ".tsv": "text/tab-separated-values",
+    ".json": "application/json",
+    ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    ".xls": "application/vnd.ms-excel",
+    ".parquet": "application/vnd.apache.parquet",
+    ".arff": "text/plain",
+    ".feather": "application/octet-stream",
+}
+
+
+@mcp.tool()
+async def discovery_upload(
+    file_content: str | None = None,
+    file_name: str = "data.csv",
+    file_path: str | None = None,
+    file_url: str | None = None,
+    api_key: str | None = None,
+) -> str:
+    """Upload a dataset file and return a file reference for use with discovery_analyze.
+
+    Call this before discovery_analyze. Pass the returned result directly to
+    discovery_analyze as the file_ref argument.
+
+    Provide exactly one of: file_url, file_path, or file_content.
+
+    Args:
+        file_url: A publicly accessible http/https URL. The server downloads it directly.
+                  Best option for remote datasets.
+        file_path: Absolute path to a local file. Only works when running the MCP server
+                   locally (not the hosted version). Streams the file directly — no size limit.
+        file_content: File contents, base64-encoded. For small files when a URL or path
+                      isn't available. Limited by the model's context window.
+        file_name: Filename with extension (e.g. "data.csv"), for format detection.
+                   Only used with file_content. Default: "data.csv".
+        api_key: Discovery Engine API key (disco_...). Optional if DISCOVERY_API_KEY env var is set.
+    """
+    import base64
+    from pathlib import Path
+
+    resolved_key = _resolve_api_key(api_key)
+    if not resolved_key:
+        return json.dumps(
+            {"error": "API key required. Pass api_key or set DISCOVERY_API_KEY env var."}
+        )
+
+    if file_url is not None:
+        # URL-based upload — server downloads directly
+        result = await _dashboard_request(
+            "POST",
+            "/api/data/upload/from-url",
+            api_key=resolved_key,
+            json_body={"url": file_url},
+            timeout=300.0,
+        )
+        if "error" in result:
+            return json.dumps(result)
+        if not result.get("ok"):
+            errors = result.get("issues", {}).get("errors", [])
+            msg = errors[0].get("message") if errors else "Upload failed"
+            return json.dumps({"error": msg})
+        return json.dumps(
+            {
+                "file": result["file"],
+                "columns": result.get("columns", []),
+                "rowCount": result.get("rowCount"),
+            }
+        )
+
+    if file_path is not None:
+        # Local file path — presign, upload directly to storage, finalize
+        path = Path(file_path)
+        if not path.exists():
+            return json.dumps({"error": f"File not found: {file_path}"})
+        if not path.is_file():
+            return json.dumps({"error": f"Not a file: {file_path}"})
+
+        file_bytes = path.read_bytes()
+        filename = path.name
+        mime_type = _MIME_TYPES.get(path.suffix.lower(), "text/csv")
+
+        presign = await _dashboard_request(
+            "POST",
+            "/api/data/upload/presign",
+            api_key=resolved_key,
+            json_body={"fileName": filename, "contentType": mime_type, "fileSize": len(file_bytes)},
+        )
+        if "error" in presign:
+            return json.dumps(presign)
+
+        try:
+            async with httpx.AsyncClient(timeout=1800.0) as upload_client:
+                upload_resp = await upload_client.put(
+                    presign["uploadUrl"],
+                    content=file_bytes,
+                    headers={"Content-Type": mime_type},
+                )
+                if upload_resp.status_code >= 400:
+                    return json.dumps(
+                        {"error": f"Storage upload failed ({upload_resp.status_code})"}
+                    )
+        except Exception as e:
+            return json.dumps({"error": f"Storage upload failed: {e}"})
+
+        finalize = await _dashboard_request(
+            "POST",
+            "/api/data/upload/finalize",
+            api_key=resolved_key,
+            json_body={"key": presign["key"], "uploadToken": presign["uploadToken"]},
+            timeout=300.0,
+        )
+        if "error" in finalize:
+            return json.dumps(finalize)
+        if not finalize.get("ok"):
+            errors = finalize.get("issues", {}).get("errors", [])
+            msg = errors[0].get("message") if errors else "Finalize failed"
+            return json.dumps({"error": msg})
+
+        return json.dumps(
+            {
+                "file": finalize["file"],
+                "columns": finalize.get("columns", []),
+                "rowCount": finalize.get("rowCount"),
+            }
+        )
+
+    if file_content is not None:
+        # Base64 file content — limited by context window size
+        try:
+            raw_bytes = base64.b64decode(file_content)
+        except Exception as e:
+            return json.dumps({"error": f"Invalid file_content (base64 decode failed): {e}"})
+
+        client = await _get_dashboard_client()
+        upload_headers = {"Authorization": f"Bearer {resolved_key}", "X-Client-Type": "mcp"}
+        try:
+            resp = await client.post(
+                "/api/data/upload",
+                headers=upload_headers,
+                files={"file": (file_name, raw_bytes)},
+                timeout=300.0,
+            )
+        except Exception as e:
+            return json.dumps({"error": f"Upload failed: {e}"})
+
+        if resp.status_code >= 400:
+            try:
+                detail = resp.json()
+                errors = detail.get("issues", {}).get("errors", [])
+                msg = errors[0].get("message") if errors else detail.get("error", resp.text)
+            except Exception:
+                msg = resp.text
+            return json.dumps({"error": f"Upload failed: {msg}"})
+
+        result = resp.json()
+        if not result.get("ok"):
+            errors = result.get("issues", {}).get("errors", [])
+            msg = errors[0].get("message") if errors else "Upload failed"
+            return json.dumps({"error": msg})
+
+        return json.dumps(
+            {
+                "file": result["file"],
+                "columns": result.get("columns", []),
+                "rowCount": result.get("rowCount"),
+            }
+        )
+
+    return json.dumps(
+        {
+            "error": "Provide one of: file_url (remote URL), file_path (local path), or file_content (base64)."
+        }
+    )
+
+
 @mcp.tool()
 async def discovery_analyze(
     target_column: str,
-    file_path: str | None = None,
     file_ref: str | dict | None = None,
     depth_iterations: int = 1,
     visibility: str = "public",
@@ -288,13 +432,11 @@ async def discovery_analyze(
     Public runs are free but results are published. Private runs cost credits.
     Call discovery_estimate first to check cost.
 
-    Provide either file_path (local file to upload) or file_ref (pre-uploaded file
-    reference from the presigned URL upload flow).
+    Call discovery_upload first to upload your file, then pass the returned file_ref here.
 
     Args:
         target_column: The column to analyze — what drives it, beyond what's obvious.
-        file_path: Path to a local dataset file (CSV, TSV, Excel, JSON, Parquet, ARFF, Feather).
-        file_ref: JSON string with pre-uploaded file reference: {"file": {...}, "columns": [...]}.
+        file_ref: The file reference returned by discovery_upload.
         depth_iterations: Search depth (1=fast, higher=deeper). Default 1.
         visibility: "public" (free) or "private" (costs credits). Default "public".
         title: Optional title for the analysis.
@@ -305,9 +447,6 @@ async def discovery_analyze(
         source_url: Optional source URL for the dataset.
         api_key: Discovery Engine API key (disco_...). Optional if DISCOVERY_API_KEY env var is set.
     """
-    import mimetypes
-    import os as _os
-
     resolved_key = _resolve_api_key(api_key)
     if not resolved_key:
         return json.dumps(
@@ -318,85 +457,24 @@ async def discovery_analyze(
     if vis_err:
         return json.dumps({"error": vis_err})
 
-    if not file_path and not file_ref:
-        return json.dumps({"error": "Provide either file_path or file_ref."})
-    if file_path and file_ref:
-        return json.dumps({"error": "Provide file_path or file_ref, not both."})
+    if not file_ref:
+        return json.dumps(
+            {"error": "file_ref is required. Call discovery_upload first to upload your file."}
+        )
 
-    if file_ref:
-        # Use pre-uploaded file reference — skip upload steps.
-        # The MCP SDK may deserialize JSON strings into dicts, so accept both.
-        if isinstance(file_ref, dict):
-            ref = file_ref
-        else:
-            try:
-                ref = json.loads(file_ref)
-            except json.JSONDecodeError as e:
-                return json.dumps({"error": f"Invalid file_ref JSON: {e}"})
-
-        uploaded_file = ref.get("file")
-        columns = ref.get("columns", [])
-        if not uploaded_file or not uploaded_file.get("key"):
-            return json.dumps({"error": "file_ref must contain 'file' with at least a 'key'."})
+    # The MCP SDK may deserialize JSON strings into dicts, so accept both.
+    if isinstance(file_ref, dict):
+        ref = file_ref
     else:
-        # Upload from local file path
-        file_err = _validate_file_path(file_path)
-        if file_err:
-            return json.dumps({"error": file_err})
+        try:
+            ref = json.loads(file_ref)
+        except json.JSONDecodeError as e:
+            return json.dumps({"error": f"Invalid file_ref JSON: {e}"})
 
-        resolved_path = _os.path.realpath(file_path)
-        file_name = _os.path.basename(resolved_path)
-        content_type = mimetypes.guess_type(resolved_path)[0] or "text/csv"
-        file_size = _os.path.getsize(resolved_path)
-
-        # Step 1: Get presigned upload URL
-        presign = await _dashboard_request(
-            "POST",
-            "/api/data/upload/presign",
-            api_key=resolved_key,
-            json_body={
-                "fileName": file_name,
-                "contentType": content_type,
-                "fileSize": file_size,
-            },
-        )
-        if "error" in presign:
-            return json.dumps(presign)
-
-        upload_url = presign.get("uploadUrl")
-        key = presign.get("key")
-        upload_token = presign.get("uploadToken")
-        if not upload_url or not key or not upload_token:
-            return json.dumps({"error": "Failed to get upload URL from API."})
-
-        # Step 2: Upload file to presigned URL
-        async with httpx.AsyncClient(timeout=300.0) as upload_client:
-            with open(resolved_path, "rb") as f:
-                upload_resp = await upload_client.put(
-                    upload_url,
-                    content=f.read(),
-                    headers={"Content-Type": content_type},
-                )
-                if upload_resp.status_code >= 400:
-                    return json.dumps({"error": f"File upload failed: {upload_resp.status_code}"})
-
-        # Step 3: Finalize the upload
-        finalize = await _dashboard_request(
-            "POST",
-            "/api/data/upload/finalize",
-            api_key=resolved_key,
-            json_body={"key": key, "uploadToken": upload_token},
-        )
-        if "error" in finalize:
-            return json.dumps(finalize)
-
-        if not finalize.get("ok"):
-            errors = finalize.get("issues", {}).get("errors", [])
-            error_msg = errors[0].get("message") if errors else "Upload finalize failed"
-            return json.dumps({"error": error_msg})
-
-        uploaded_file = finalize["file"]
-        columns = finalize.get("columns", [])
+    uploaded_file = ref.get("file")
+    columns = ref.get("columns", [])
+    if not uploaded_file or not uploaded_file.get("key"):
+        return json.dumps({"error": "file_ref must contain 'file' with at least a 'key'."})
 
     # Build the run payload
     run_payload: dict = {
