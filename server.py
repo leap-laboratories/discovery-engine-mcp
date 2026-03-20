@@ -556,12 +556,16 @@ async def discovery_analyze(
 async def discovery_status(run_id: str, api_key: str | None = None) -> str:
     """Check the status of a Discovery Engine run.
 
-    Returns the current status (pending, processing, completed, failed) and
-    progress information. Poll this after calling discovery_analyze — runs
-    typically take 3-15 minutes.
+    Returns current status and progress details:
+    - status: "pending" | "processing" | "completed" | "failed"
+    - job_status: underlying job queue status
+    - queue_position: position in queue when pending (1 = next up)
+    - current_step: active pipeline step (preprocessing, training, interpreting, reporting)
+    - estimated_seconds: estimated total processing time in seconds
+    - estimated_wait_seconds: estimated queue wait time in seconds (pending only)
 
-    This is a lightweight status check. Use discovery_get_results to fetch
-    the full results once the run is completed.
+    Poll this after calling discovery_analyze — runs typically take 3–15 minutes.
+    Use discovery_get_results to fetch full results once status is "completed".
 
     Args:
         run_id: The run ID returned by discovery_analyze.
@@ -582,6 +586,10 @@ async def discovery_status(run_id: str, api_key: str | None = None) -> str:
             "status": result.get("status"),
             "job_id": result.get("job_id"),
             "job_status": result.get("job_status"),
+            "queue_position": result.get("queue_position"),
+            "current_step": result.get("current_step"),
+            "estimated_seconds": result.get("estimated_seconds"),
+            "estimated_wait_seconds": result.get("estimated_wait_seconds"),
             "error_message": result.get("error_message"),
         }
         return json.dumps(status_result, indent=2)
