@@ -1,10 +1,10 @@
-# Discovery Engine
+# Disco
 
 Find novel, statistically validated patterns in tabular data — feature interactions, subgroup effects, and conditional relationships that correlation analysis and LLMs miss.
 
 Made by Leap Laboratories (https://www.leap-labs.com).
 
-## When To Use Discovery Engine
+## When To Use Disco
 
 Use for exploratory data analysis when the goal is to discover new insights:
 - "What's really driving X?" — finds feature interactions and subgroup effects, not just correlations

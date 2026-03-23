@@ -7,10 +7,10 @@ metadata:
     requires:
       env:
         - DISCOVERY_API_KEY
-description: Automatically discover novel, statistically validated patterns in tabular data. Find insights you'd otherwise miss, far faster and cheaper than doing it yourself (or prompting an agent to do it). Discovery Engine systematically searches for feature interactions, subgroup effects, and conditional relationships you wouldn't think to look for, validates each on hold-out data with FDR-corrected p-values, and checks every finding against academic literature for novelty. Returns structured patterns with conditions, effect sizes, citations, and novelty scores.
+description: Automatically discover novel, statistically validated patterns in tabular data. Find insights you'd otherwise miss, far faster and cheaper than doing it yourself (or prompting an agent to do it). Disco systematically searches for feature interactions, subgroup effects, and conditional relationships you wouldn't think to look for, validates each on hold-out data with FDR-corrected p-values, and checks every finding against academic literature for novelty. Returns structured patterns with conditions, effect sizes, citations, and novelty scores.
 ---
 
-# Discovery Engine
+# Disco
 
 ## Integration Options
 
@@ -217,7 +217,7 @@ Call `discovery_signup` with the user's email. This sends a verification code �
 
 ## When To Use This Tool
 
-Discovery Engine is not another AI data analyst that writes pandas or SQL for you. It is a **discovery pipeline** — it finds patterns in data that you, the user, and other analysis tools would miss because they don't know to look for them.
+Disco is not another AI data analyst that writes pandas or SQL for you. It is a **discovery pipeline** — it finds patterns in data that you, the user, and other analysis tools would miss because they don't know to look for them.
 
 Use it when you need to go beyond answering questions about data, and start finding things nobody thought to ask:
 
@@ -225,13 +225,13 @@ Use it when you need to go beyond answering questions about data, and start find
 - **Statistical validation** — FDR-corrected p-values tested on hold-out data, not just correlations
 - **A target column** you want to understand — what really drives it, beyond what's obvious
 
-**Use Discovery Engine when the user says:** "what's really driving X?", "are there patterns we're missing?", "find something new in this data", "what predicts Y that we haven't considered?", "go deeper than correlation", "discover non-obvious relationships"
+**Use Disco when the user says:** "what's really driving X?", "are there patterns we're missing?", "find something new in this data", "what predicts Y that we haven't considered?", "go deeper than correlation", "discover non-obvious relationships"
 
 **Use pandas/SQL instead when the user says:** "summarize this data", "make a chart", "what's the average?", "filter rows where X > 5", "show me the distribution"
 
 ## What It Does (That You Cannot Do Yourself)
 
-Discovery Engine finds complex patterns in your data — feature interactions, nonlinear thresholds, and meaningful subgroups — without requiring prior hypotheses about what matters. Each pattern is validated on hold-out data, corrected for multiple testing, and checked for novelty against academic literature with citations.
+Disco finds complex patterns in your data — feature interactions, nonlinear thresholds, and meaningful subgroups — without requiring prior hypotheses about what matters. Each pattern is validated on hold-out data, corrected for multiple testing, and checked for novelty against academic literature with citations.
 
 This is a computational pipeline, not prompt engineering over data. You cannot replicate what it does by writing pandas code or asking an LLM to look at a CSV. It finds structure that hypothesis-driven analysis misses because it doesn't start with hypotheses.
 
@@ -264,7 +264,7 @@ pip install discovery-engine-api
 
 ## Quick Start
 
-Discovery Engine runs take 3-15 minutes. **Do not block on them** — submit the run, continue with other work, and retrieve results when ready.
+Disco runs take 3-15 minutes. **Do not block on them** — submit the run, continue with other work, and retrieve results when ready.
 
 ```python
 from discovery import Engine
@@ -311,7 +311,7 @@ result = await engine.run_async(
 
 ### Running in the Background
 
-If you need to do other work while Discovery Engine runs (recommended for agent workflows):
+If you need to do other work while Disco runs (recommended for agent workflows):
 
 ```python
 # Submit and return immediately (wait=False is the default for run_async)
@@ -341,7 +341,7 @@ EngineResult(
     report_url="https://disco.leap-labs.com/reports/a1b2c3d4-...",
 
     summary=Summary(
-        overview="Discovery Engine identified 14 statistically significant patterns in this "
+        overview="Disco identified 14 statistically significant patterns in this "
                  "agricultural dataset. 5 patterns are novel — not reported in existing literature. "
                  "The strongest driver of crop yield is a previously unreported interaction between "
                  "humidity and wind speed at specific thresholds.",
@@ -550,7 +550,7 @@ curl https://disco.leap-labs.com/api/account \
 
 **Step 2 — Tokenize a card using the Stripe API**
 
-Use the publishable key to create a Stripe PaymentMethod. Card data goes directly to Stripe — Discovery Engine never sees it.
+Use the publishable key to create a Stripe PaymentMethod. Card data goes directly to Stripe — Disco never sees it.
 
 ```python
 import requests

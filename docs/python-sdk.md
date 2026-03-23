@@ -1,4 +1,4 @@
-# Discovery Engine Python SDK
+# Disco Python SDK
 
 Find novel, statistically validated patterns in tabular data — feature interactions, subgroup effects, and conditional relationships that correlation analysis and LLMs miss.
 
@@ -94,7 +94,7 @@ Waiting for run abc123 to complete...
 Run completed in 467.8s
 ```
 
-If you need to do other work while Discovery Engine runs:
+If you need to do other work while Disco runs:
 
 ```python
 import asyncio
@@ -411,7 +411,7 @@ All errors include a `suggestion` field with actionable instructions.
 
 ## MCP Server
 
-Discovery Engine is available as an [MCP server](https://disco.leap-labs.com/.well-known/mcp.json) with tools for the full discovery lifecycle — estimate, analyze, check status, get results, manage account. To subscribe or purchase credits via MCP, call `discovery_add_payment_method` first to attach a Stripe payment method.
+Disco is available as an [MCP server](https://disco.leap-labs.com/.well-known/mcp.json) with tools for the full discovery lifecycle — estimate, analyze, check status, get results, manage account. To subscribe or purchase credits via MCP, call `discovery_add_payment_method` first to attach a Stripe payment method.
 
 ```json
 {

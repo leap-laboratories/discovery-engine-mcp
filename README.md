@@ -1,4 +1,4 @@
-# Discovery Engine
+# Disco
 
 **Find novel, statistically validated patterns in tabular data** — feature interactions, subgroup effects, and conditional relationships that correlation analysis and LLMs miss.
 
@@ -11,7 +11,7 @@ Made by [Leap Laboratories](https://www.leap-labs.com).
 
 ## What it actually does
 
-Most data analysis starts with a question. Discovery Engine starts with the data.
+Most data analysis starts with a question. Disco starts with the data.
 
 Without biases or assumptions, it searches for combinations of feature conditions that significantly shift your target column — things like "patients aged 45–65 with low HDL *and* high CRP have 3× the readmission rate" — without you needing to hypothesise that interaction first.
 
@@ -119,7 +119,7 @@ The `result.summary` gives an LLM-generated narrative overview:
 
 ```python
 result.summary.overview
-# "Discovery Engine identified 14 statistically significant patterns. 5 are novel.
+# "Disco identified 14 statistically significant patterns. 5 are novel.
 #  The strongest driver is a previously unreported interaction between humidity
 #  and wind speed at specific thresholds."
 
@@ -133,7 +133,7 @@ result.summary.key_insights
 
 ## How it works
 
-Discovery Engine is a pipeline, not prompt engineering over data. It:
+Disco is a pipeline, not prompt engineering over data. It:
 
 1. Trains machine learning models on a subset of your data
 2. Uses interpretability techniques to extract learned patterns
@@ -191,7 +191,7 @@ result = engine.run(file="data.csv", target_column="outcome", wait=True)
 
 ## MCP server
 
-Discovery Engine is available as an MCP server — no local install required.
+Disco is available as an MCP server — no local install required.
 
 ```json
 {

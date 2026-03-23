@@ -1,6 +1,6 @@
-"""Discovery Engine MCP Server.
+"""Disco MCP Server.
 
-Exposes Discovery Engine as MCP tools for AI agents.
+Exposes Disco as MCP tools for AI agents.
 Covers the full lifecycle: discovery, estimation, account management.
 
 NOTE: A public copy of this file lives at github.com/leap-laboratories/discovery-engine.
@@ -32,9 +32,9 @@ _ENV_API_KEY = os.getenv("DISCOVERY_API_KEY")
 _VALID_VISIBILITY = {"public", "private"}
 
 mcp = FastMCP(
-    "Discovery Engine",
+    "Disco",
     instructions=(
-        "Not another AI data analyst. Discovery Engine is a discovery pipeline "
+        "Not another AI data analyst. Disco is a discovery pipeline "
         "that finds novel, statistically validated patterns in tabular data — "
         "feature interactions, subgroup effects, and conditional relationships "
         "you wouldn't think to look for."
@@ -163,7 +163,7 @@ def _build_result_hints(data: dict) -> list[str]:
 
 @mcp.tool()
 async def discovery_list_plans() -> str:
-    """List available Discovery Engine plans with pricing.
+    """List available Disco plans with pricing.
 
     No authentication required. Returns all available subscription tiers
     with credit allowances and pricing. Use this to help users choose a plan.
@@ -198,7 +198,7 @@ async def discovery_estimate(
         num_rows: Number of rows (optional, improves time estimate).
         depth_iterations: Search depth (1=fast, higher=deeper). Default 1.
         visibility: "public" (free, results published) or "private" (costs credits).
-        api_key: Discovery Engine API key (disco_...). Optional if DISCOVERY_API_KEY env var is set.
+        api_key: Disco API key (disco_...). Optional if DISCOVERY_API_KEY env var is set.
     """
     resolved_key = _resolve_api_key(api_key)
     if not resolved_key:
@@ -261,7 +261,7 @@ async def discovery_upload(
                       isn't available. Limited by the model's context window.
         file_name: Filename with extension (e.g. "data.csv"), for format detection.
                    Only used with file_content. Default: "data.csv".
-        api_key: Discovery Engine API key (disco_...). Optional if DISCOVERY_API_KEY env var is set.
+        api_key: Disco API key (disco_...). Optional if DISCOVERY_API_KEY env var is set.
     """
     import base64
     from pathlib import Path
@@ -427,7 +427,7 @@ async def discovery_analyze(
     source_url: str | None = None,
     api_key: str | None = None,
 ) -> str:
-    """Run Discovery Engine on tabular data to find novel, statistically validated patterns.
+    """Run Disco on tabular data to find novel, statistically validated patterns.
 
     This is NOT another data analyst — it's a discovery pipeline that systematically
     searches for feature interactions, subgroup effects, and conditional relationships
@@ -457,7 +457,7 @@ async def discovery_analyze(
         column_descriptions: Optional JSON object mapping column names to descriptions. Significantly improves pattern explanations — always provide if column names are non-obvious (e.g. {"col_7": "patient age", "feat_a": "blood pressure"}).
         author: Optional author name for the report.
         source_url: Optional source URL for the dataset.
-        api_key: Discovery Engine API key (disco_...). Optional if DISCOVERY_API_KEY env var is set.
+        api_key: Disco API key (disco_...). Optional if DISCOVERY_API_KEY env var is set.
     """
     resolved_key = _resolve_api_key(api_key)
     if not resolved_key:
@@ -554,7 +554,7 @@ async def discovery_analyze(
 
 @mcp.tool()
 async def discovery_status(run_id: str, api_key: str | None = None) -> str:
-    """Check the status of a Discovery Engine run.
+    """Check the status of a Disco run.
 
     Returns current status and progress details:
     - status: "pending" | "processing" | "completed" | "failed"
@@ -569,7 +569,7 @@ async def discovery_status(run_id: str, api_key: str | None = None) -> str:
 
     Args:
         run_id: The run ID returned by discovery_analyze.
-        api_key: Discovery Engine API key (disco_...). Optional if DISCOVERY_API_KEY env var is set.
+        api_key: Disco API key (disco_...). Optional if DISCOVERY_API_KEY env var is set.
     """
     resolved_key = _resolve_api_key(api_key)
     if not resolved_key:
@@ -599,7 +599,7 @@ async def discovery_status(run_id: str, api_key: str | None = None) -> str:
 
 @mcp.tool()
 async def discovery_get_results(run_id: str, api_key: str | None = None) -> str:
-    """Fetch the full results of a completed Discovery Engine run.
+    """Fetch the full results of a completed Disco run.
 
     Returns discovered patterns (with conditions, p-values, novelty scores,
     citations), feature importance scores, a summary with key insights, column
@@ -609,7 +609,7 @@ async def discovery_get_results(run_id: str, api_key: str | None = None) -> str:
 
     Args:
         run_id: The run ID returned by discovery_analyze.
-        api_key: Discovery Engine API key (disco_...). Optional if DISCOVERY_API_KEY env var is set.
+        api_key: Disco API key (disco_...). Optional if DISCOVERY_API_KEY env var is set.
     """
     resolved_key = _resolve_api_key(api_key)
     if not resolved_key:
@@ -630,14 +630,14 @@ async def discovery_get_results(run_id: str, api_key: str | None = None) -> str:
 
 @mcp.tool()
 async def discovery_account(api_key: str | None = None) -> str:
-    """Check your Discovery Engine account status.
+    """Check your Disco account status.
 
     Returns current plan, available credits (subscription + purchased), and
     payment method status. Use this to verify you have sufficient credits
     before running a private analysis.
 
     Args:
-        api_key: Discovery Engine API key (disco_...). Optional if DISCOVERY_API_KEY env var is set.
+        api_key: Disco API key (disco_...). Optional if DISCOVERY_API_KEY env var is set.
     """
     resolved_key = _resolve_api_key(api_key)
     if not resolved_key:
@@ -651,7 +651,7 @@ async def discovery_account(api_key: str | None = None) -> str:
 
 @mcp.tool()
 async def discovery_signup(email: str, name: str = "") -> str:
-    """Create a Discovery Engine account and get an API key.
+    """Create a Disco account and get an API key.
 
     Provide an email address to start the signup flow. If email verification
     is required, returns {"status": "verification_required"} — the user will
@@ -674,7 +674,7 @@ async def discovery_signup(email: str, name: str = "") -> str:
 
 @mcp.tool()
 async def discovery_signup_verify(email: str, code: str) -> str:
-    """Complete Discovery Engine signup using an email verification code.
+    """Complete Disco signup using an email verification code.
 
     Call this after discovery_signup returns {"status": "verification_required"}.
     The user receives a 6-digit code by email — pass it here along with the
@@ -694,10 +694,10 @@ async def discovery_signup_verify(email: str, code: str) -> str:
 
 @mcp.tool()
 async def discovery_add_payment_method(payment_method_id: str, api_key: str | None = None) -> str:
-    """Attach a Stripe payment method to your Discovery Engine account.
+    """Attach a Stripe payment method to your Disco account.
 
     The payment method must be tokenized via Stripe's API first — card details
-    never touch Discovery Engine's servers. Required before purchasing credits
+    never touch Disco's servers. Required before purchasing credits
     or subscribing to a paid plan.
 
     To tokenize a card, call Stripe's API directly:
@@ -706,7 +706,7 @@ async def discovery_add_payment_method(payment_method_id: str, api_key: str | No
 
     Args:
         payment_method_id: Stripe payment method ID (pm_...) from Stripe's API.
-        api_key: Discovery Engine API key (disco_...). Optional if DISCOVERY_API_KEY env var is set.
+        api_key: Disco API key (disco_...). Optional if DISCOVERY_API_KEY env var is set.
     """
     resolved_key = _resolve_api_key(api_key)
     if not resolved_key:
@@ -725,7 +725,7 @@ async def discovery_add_payment_method(payment_method_id: str, api_key: str | No
 
 @mcp.tool()
 async def discovery_purchase_credits(packs: int = 1, api_key: str | None = None) -> str:
-    """Purchase Discovery Engine credit packs using a stored payment method.
+    """Purchase Disco credit packs using a stored payment method.
 
     Credits cost $1.00 each, sold in packs of 20 ($20/pack). Credits are used
     for private analyses (public analyses are free). Requires a payment method
@@ -733,7 +733,7 @@ async def discovery_purchase_credits(packs: int = 1, api_key: str | None = None)
 
     Args:
         packs: Number of 20-credit packs to purchase. Default 1.
-        api_key: Discovery Engine API key (disco_...). Optional if DISCOVERY_API_KEY env var is set.
+        api_key: Disco API key (disco_...). Optional if DISCOVERY_API_KEY env var is set.
     """
     resolved_key = _resolve_api_key(api_key)
     if not resolved_key:
@@ -752,7 +752,7 @@ async def discovery_purchase_credits(packs: int = 1, api_key: str | None = None)
 
 @mcp.tool()
 async def discovery_subscribe(plan: str, api_key: str | None = None) -> str:
-    """Subscribe to or change your Discovery Engine plan.
+    """Subscribe to or change your Disco plan.
 
     Available plans:
     - "free_tier": Explorer — free, 10 credits/month
@@ -763,7 +763,7 @@ async def discovery_subscribe(plan: str, api_key: str | None = None) -> str:
 
     Args:
         plan: Plan tier ID ("free_tier", "tier_1", or "tier_2").
-        api_key: Discovery Engine API key (disco_...). Optional if DISCOVERY_API_KEY env var is set.
+        api_key: Disco API key (disco_...). Optional if DISCOVERY_API_KEY env var is set.
     """
     resolved_key = _resolve_api_key(api_key)
     if not resolved_key:
