@@ -46,7 +46,7 @@ await engine.discover(
     title: str | None = None,           # Dataset title
     description: str | None = None,     # Dataset description
     column_descriptions: dict[str, str] | None = None,  # Improves pattern explanations
-    excluded_columns: list[str] | None = None,           # Columns to exclude (e.g., IDs)
+    excluded_columns: list[str] | None = None,           # Columns to exclude — see below
     timeout: float = 1800,              # Max seconds to wait
     # Additional kwargs forwarded to run_async():
     # task, author, source_url, timeseries_groups, ...
@@ -56,6 +56,8 @@ await engine.discover(
 > **Tip:** Providing `column_descriptions` significantly improves pattern explanations. If your columns have non-obvious names, always describe them.
 
 > **Visibility:** `"public"` runs are free but results are published, and analysis depth is locked to 2. `"private"` runs keep results confidential and consume credits.
+
+> **`excluded_columns`:** Always exclude identifiers (row IDs, UUIDs), data leakage (target renamed/reformatted), and tautological columns (alternative encodings of the same construct as the target). For example, if your target is `serious`, exclude `serious_outcome`, `not_serious`, `death` — they're part of the same classification system. See [SKILL.md](../SKILL.md#preparing-your-data) for full guidance.
 
 
 ## Examples
@@ -76,7 +78,7 @@ result = await engine.discover(
         "age": "Patient age in years",
         "bmi": "Body mass index",
     },
-    excluded_columns=["patient_id", "timestamp"],
+    excluded_columns=["patient_id", "timestamp", "outcome_text"],  # IDs + tautological
 )
 ```
 

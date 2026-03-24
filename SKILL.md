@@ -195,7 +195,7 @@ Returns a `file_ref` (pass it directly to `discovery_analyze`) and `columns` (li
 - `depth_iterations` — 2 = default, higher = deeper analysis. Max: num_columns - 2
 - `visibility` — `"public"` (free, results published) or `"private"` (costs credits)
 - `column_descriptions` — JSON object mapping column names to descriptions. Significantly improves pattern explanations — always provide if column names are non-obvious
-- `excluded_columns` — JSON array of column names to exclude from analysis
+- `excluded_columns` — JSON array of column names to exclude from analysis (see **Preparing Your Data** below)
 - `title` — Optional title for the analysis
 - `description` — Optional description of the dataset
 - `author` — Optional author name for the dataset
@@ -210,6 +210,39 @@ Call `discovery_signup` with the user's email. This sends a verification code �
 1. Call `discovery_estimate` to show what it would cost
 2. Suggest running publicly (free, but results are published and depth is locked to 2)
 3. Or guide them through `discovery_purchase_credits` / `discovery_subscribe`
+
+---
+
+## Preparing Your Data
+
+Before running an analysis, **you must exclude columns that would produce meaningless findings.** Disco finds statistically real patterns — but if the input includes columns that are definitionally related to the target, the patterns will be true by definition, not by discovery.
+
+**Always exclude these column types via `excluded_columns`:**
+
+### 1. Identifiers
+Row IDs, patient IDs, UUIDs, accession numbers, sample codes. These are arbitrary labels with no analytical signal.
+
+### 2. Data leakage
+Columns that are the target column renamed, reformatted, or binned. Example: `diagnosis_text` when the target is `diagnosis_code`.
+
+### 3. Tautological / definitional columns
+**This is the most important category.** Columns that encode the same underlying construct as the target — through alternative classifications, component parts, or derived calculations. These produce findings that are trivially true.
+
+Examples:
+- **FAERS data:** If the target is `serious`, then `serious_outcome` (categories like death, disability, hospitalisation), `not_serious`, and `death` are all part of the same seriousness classification. A finding that "death predicts seriousness" is a tautology, not a discovery.
+- **Clinical trials:** If the target is `response`, then `response_category`, `responder_flag`, and `RECIST_response` are all encodings of the same outcome.
+- **Financial data:** If the target is `profit`, then `revenue` and `cost` together compose it (profit = revenue − cost).
+- **Surveys:** If the target is a composite index score, the sub-items that make up the index are tautological.
+- **Derived columns:** BMI when height and weight are present, age when birth_date is present.
+
+**How to identify them:** Ask "is this column just a different way of expressing what the target already measures?" If yes, exclude it.
+
+```python
+# Example: FAERS adverse event analysis
+excluded_columns=["serious_outcome", "not_serious", "death", "hospitalization",
+                   "disability", "congenital_anomaly", "life_threatening",
+                   "required_intervention", "case_id", "report_id"]
+```
 
 ---
 

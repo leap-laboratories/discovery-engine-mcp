@@ -144,6 +144,19 @@ You cannot replicate this by writing pandas code or asking an LLM to look at a C
 
 ---
 
+## Preparing your data
+
+Before running, exclude columns that would produce meaningless findings. Disco finds statistically real patterns — but if the input includes columns that are definitionally related to the target, the patterns will be tautological.
+
+**Exclude:**
+1. **Identifiers** — row IDs, UUIDs, patient IDs, sample codes
+2. **Data leakage** — the target renamed or reformatted (e.g., `diagnosis_text` when the target is `diagnosis_code`)
+3. **Tautological columns** — alternative encodings of the same construct as the target. If target is `serious`, then `serious_outcome`, `not_serious`, `death` are all part of the same classification. If target is `profit`, then `revenue` and `cost` together compose it. If target is a survey index, the sub-items are tautological.
+
+> Full guidance with examples: [SKILL.md](SKILL.md#preparing-your-data)
+
+---
+
 ## Parameters
 
 ```python
@@ -156,7 +169,7 @@ await engine.discover(
         "bmi": "Body mass index",
         "hdl": "HDL cholesterol in mg/dL",
     },
-    excluded_columns=["id", "timestamp"],
+    excluded_columns=["id", "timestamp"],  # see "Preparing your data" above
     title="My dataset",
     description="...", # improves pattern explanations and literature context
 )

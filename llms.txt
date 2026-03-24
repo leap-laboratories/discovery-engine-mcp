@@ -102,6 +102,15 @@ estimate = await engine.estimate(
 # estimate["account"]["sufficient"]        → True/False
 ```
 
+## Preparing Your Data
+
+Before running, use `excluded_columns` to remove columns that would produce tautological findings:
+
+1. **Identifiers** — row IDs, UUIDs, patient IDs, sample codes
+2. **Data leakage** — the target column renamed or reformatted
+3. **Tautological columns** — alternative encodings of the same construct as the target (e.g., if target is `serious`, exclude `serious_outcome`, `not_serious`, `death` — they're all part of the same classification system; if target is `profit`, exclude `revenue` and `cost` which compose it)
+
+
 ## Supported File Formats
 
 CSV, TSV, Excel (.xlsx), JSON, Parquet, ARFF, Feather. Max 5 GB.
