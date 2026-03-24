@@ -150,7 +150,7 @@ You cannot replicate this by writing pandas code or asking an LLM to look at a C
 await engine.discover(
     file="data.csv",           # path, Path, or pd.DataFrame
     target_column="outcome",   # column to predict/explain
-    depth_iterations=1,        # 1=fast, higher=deeper (max: num_columns − 2)
+    depth_iterations=2,        # 2=default, higher=deeper (max: num_columns − 2)
     visibility="public",       # "public" (free) or "private" (costs credits)
     column_descriptions={      # improves pattern explanations and literature context
         "bmi": "Body mass index",

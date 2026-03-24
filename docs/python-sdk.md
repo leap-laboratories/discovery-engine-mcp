@@ -41,7 +41,7 @@ Get your API key from the [Developers page](https://disco.leap-labs.com/develope
 await engine.discover(
     file: str | Path | pd.DataFrame,  # Dataset to analyze
     target_column: str,                 # Column to predict/analyze
-    depth_iterations: int = 1,          # 1=fast, higher=deeper search
+    depth_iterations: int = 2,          # 2=default, higher=deeper analysis
     visibility: str = "public",         # "public" (free) or "private" (credits)
     title: str | None = None,           # Dataset title
     description: str | None = None,     # Dataset description
@@ -55,7 +55,7 @@ await engine.discover(
 
 > **Tip:** Providing `column_descriptions` significantly improves pattern explanations. If your columns have non-obvious names, always describe them.
 
-> **Visibility:** `"public"` runs are free but results are published, and depth is locked to 1. `"private"` runs keep results confidential and consume credits.
+> **Visibility:** `"public"` runs are free but results are published, and analysis depth is locked to 2. `"private"` runs keep results confidential and consume credits.
 
 
 ## Examples
@@ -193,9 +193,8 @@ print(f"Explore: {result.report_url}")
 
 ## Credits and Pricing
 
-- **Public runs**: Free. Results published to public gallery. Locked to depth=1.
-- **Private runs**: 1 credit per MB per depth iteration. $1.00 per credit.
-- **Formula**: `credits = max(1, ceil(file_size_mb * depth_iterations))`
+- **Public runs**: Free. Results published to public gallery. Locked to depth=2.
+- **Private runs**: Credits scale with file size and depth. $1.00 per credit. Use `engine.estimate()` to check cost before running.
 
 ```python
 # Estimate cost before running
@@ -205,10 +204,10 @@ estimate = await engine.estimate(
     depth_iterations=2,
     visibility="private",
 )
-# estimate["cost"]["credits"]               -> 21
-# estimate["cost"]["price_usd"]             -> 21.0
+# estimate["cost"]["credits"]               -> 11
+# estimate["cost"]["price_usd"]             -> 11.0
 # estimate["cost"]["free_alternative"]      -> True
-# estimate["cost"]["free_alternative_note"] -> "Run publicly for free (depth locked to 1, results published)"
+# estimate["cost"]["free_alternative_note"] -> "Run publicly for free (depth locked to 2, results published)"
 # estimate["time_estimate"]["estimated_seconds"] -> 360
 # estimate["account"]["sufficient"]         -> True/False
 # estimate["limits"]["max_depth"]           -> 23  (num_columns - 2)

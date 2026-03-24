@@ -49,7 +49,7 @@ result = await engine.discover(
     file="data.csv",               # str | Path | pd.DataFrame
     target_column="outcome",       # column to analyze
     visibility="public",           # "public" (free) | "private" (credits)
-    depth_iterations=1,            # higher = deeper search
+    depth_iterations=2,            # higher = deeper analysis
 )
 
 for pattern in result.patterns:
@@ -82,8 +82,8 @@ Agent skill file: https://github.com/leap-laboratories/discovery-engine/blob/mai
 
 ## Pricing
 
-- Public runs: Free (results published, depth locked to 1)
-- Private runs: 1 credit/MB/depth ($1.00/credit)
+- Public runs: Free (results published, depth locked to 2)
+- Private runs: Credits scale with file size and depth ($1.00/credit). Use estimate endpoint to check cost.
 - Free tier: 10 credits/month
 - Researcher: $49/month, 50 credits
 - Team: $199/month, 200 credits

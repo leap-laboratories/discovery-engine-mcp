@@ -107,7 +107,7 @@ async def _dashboard_request(
     json_body: dict | None = None,
     timeout: float = 30.0,
 ) -> dict:
-    """Make a request to the Discovery Dashboard API (disco.leap-labs.com/api/...)."""
+    """Make a request to Disco Dashboard API (disco.leap-labs.com/api/...)."""
     headers = _api_headers(api_key)
     client = await _get_dashboard_client()
 
@@ -182,7 +182,7 @@ async def discovery_estimate(
     file_size_mb: float,
     num_columns: int,
     num_rows: int | None = None,
-    depth_iterations: int = 1,
+    depth_iterations: int = 2,
     visibility: str = "public",
     api_key: str | None = None,
 ) -> str:
@@ -196,7 +196,7 @@ async def discovery_estimate(
         file_size_mb: Size of the dataset in megabytes.
         num_columns: Number of columns in the dataset.
         num_rows: Number of rows (optional, improves time estimate).
-        depth_iterations: Search depth (1=fast, higher=deeper). Default 1.
+        depth_iterations: Search depth (2=default, higher=deeper analysis).
         visibility: "public" (free, results published) or "private" (costs credits).
         api_key: Disco API key (disco_...). Optional if DISCOVERY_API_KEY env var is set.
     """
@@ -417,7 +417,7 @@ async def discovery_upload(
 async def discovery_analyze(
     target_column: str,
     file_ref: str | dict | None = None,
-    depth_iterations: int = 1,
+    depth_iterations: int = 2,
     visibility: str = "public",
     title: str | None = None,
     description: str | None = None,
@@ -449,7 +449,7 @@ async def discovery_analyze(
     Args:
         target_column: The column to analyze — what drives it, beyond what's obvious.
         file_ref: The file reference returned by discovery_upload.
-        depth_iterations: Search depth (1=fast, higher=deeper). Default 1.
+        depth_iterations: Search depth (2=default, higher=deeper analysis).
         visibility: "public" (free) or "private" (costs credits). Default "public".
         title: Optional title for the analysis.
         description: Optional description of the dataset.

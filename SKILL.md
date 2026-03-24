@@ -192,7 +192,7 @@ Returns a `file_ref` (pass it directly to `discovery_analyze`) and `columns` (li
 **`discovery_analyze`:**
 - `file_ref` — File reference returned by `discovery_upload`. Required.
 - `target_column` — The column to predict/explain
-- `depth_iterations` — 1 = fast (default), higher = deeper search. Max: num_columns - 2
+- `depth_iterations` — 2 = default, higher = deeper analysis. Max: num_columns - 2
 - `visibility` — `"public"` (free, results published) or `"private"` (costs credits)
 - `column_descriptions` — JSON object mapping column names to descriptions. Significantly improves pattern explanations — always provide if column names are non-obvious
 - `excluded_columns` — JSON array of column names to exclude from analysis
@@ -208,7 +208,7 @@ Call `discovery_signup` with the user's email. This sends a verification code �
 ### Insufficient credits?
 
 1. Call `discovery_estimate` to show what it would cost
-2. Suggest running publicly (free, but results are published and depth is locked to 1)
+2. Suggest running publicly (free, but results are published and depth is locked to 2)
 3. Or guide them through `discovery_purchase_credits` / `discovery_subscribe`
 
 ---
@@ -508,7 +508,7 @@ Key things to notice:
 engine.discover(
     file: str | Path | pd.DataFrame,  # Dataset to analyze
     target_column: str,                 # Column to predict/analyze
-    depth_iterations: int = 1,          # 1=fast, higher=deeper search (max: num_columns - 2)
+    depth_iterations: int = 2,          # 2=default, higher=deeper analysis (max: num_columns - 2)
     visibility: str = "public",         # "public" (free, results will be published) or "private" (costs credits)
     title: str | None = None,           # Dataset title
     description: str | None = None,     # Dataset description
@@ -522,9 +522,8 @@ engine.discover(
 
 ## Cost
 
-- **Public runs**: Free. Results published to public gallery. Locked to depth=1.
-- **Private runs**: 1 credit per MB per depth iteration. $1.00 per credit.
-- Formula: `credits = max(1, ceil(file_size_mb * depth_iterations))`
+- **Public runs**: Free. Results published to public gallery. Locked to depth=2.
+- **Private runs**: Credits scale with file size and depth. $1.00 per credit. Use `discovery_estimate` to check cost before running.
 - API keys: https://disco.leap-labs.com/developers
 - Credits: https://disco.leap-labs.com/account
 
@@ -627,13 +626,12 @@ estimate = await engine.estimate(
     depth_iterations=2,
     visibility="private",
 )
-# estimate["cost"]["credits"] → 21
-# estimate["cost"]["free_alternative"] → True (run publicly for free at depth=1)
+# estimate["cost"]["credits"] → 11
+# estimate["cost"]["free_alternative"] → True (run publicly for free at depth=2)
 # estimate["time_estimate"]["estimated_seconds"] → 360
 # estimate["account"]["sufficient"] → True/False
 ```
 
-Always estimate before running private analyses. If credits are insufficient, consider running publicly (free, but results are published and depth is locked to 1).
 
 ## Result Structure
 
